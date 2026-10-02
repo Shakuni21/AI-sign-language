@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>ISL Sign Recognition</title>
+
+
+    <style>
+
+        /* Basic page setup */
+
+        body {
+
+            font-family: Arial, sans-serif;
+
+            text-align: center;
+
+            margin: 0;
+
+            padding: 30px;
+
+        }
+
+
+        /* Webcam */
+
+        video {
+
+            width: 640px;
+
+            max-width: 90%;
+
+            border: 2px solid black;
+
+            border-radius: 10px;
+
+        }
+
+
+        /* Prediction text */
+
+        #prediction {
+
+            font-size: 32px;
+
+            font-weight: bold;
+
+            margin-top: 20px;
+
+        }
+
+
+        /* Confidence text */
+
+        #confidence {
+
+            font-size: 20px;
+
+            margin-top: 10px;
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+    <h1>Indian Sign Language Recognition</h1>
+
+
+    <!-- Webcam video -->
+
+    <video
+        id="webcam"
+        autoplay
+        playsinline>
+    </video>
+
+
+    <!-- Prediction -->
+
+    <div id="prediction">
+        No Sign
+    </div>
+
+
+    <!-- Confidence -->
+
+    <div id="confidence">
+        Confidence: 0%
+    </div>
+
+
+    <script>
+
+
+        // -------------------------------------------------
+        // GET HTML ELEMENTS
+        // -------------------------------------------------
+
+        const video = document.getElementById("webcam");
+
+        const predictionText =
+            document.getElementById("prediction");
+
+        const confidenceText =
+            document.getElementById("confidence");
+
+
+        // -------------------------------------------------
+        // OPEN WEBCAM
+        // -------------------------------------------------
+
+        navigator.mediaDevices.getUserMedia({
+
+            video: true
+
+        })
+
+
+        .then(function(stream) {
+
+            // Connect the webcam stream
+            // to the video element.
+
+            video.srcObject = stream;
+
+        })
+
+
+        .catch(function(error) {
+
+            console.error(
+                "Could not access webcam:",
+                error
+            );
+
+        });
+
+
+        // -------------------------------------------------
+        // SEND FRAME TO FASTAPI
+        // -------------------------------------------------
+
+        async function sendFrame() {
+
+
+            // Create a temporary canvas.
+
+            const canvas =
+                document.createElement("canvas");
+
+
+            // Use the webcam's current dimensions.
+
+            canvas.width = video.videoWidth;
+
+            canvas.height = video.videoHeight;
+
+
+            // Get the canvas drawing context.
+
+            const context =
+                canvas.getContext("2d");
+
+
+            // Copy the current webcam frame
+            // into the canvas.
+
+            context.drawImage(
+                video,
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            );
+
+
+            // Convert the canvas image into JPEG.
+
+            canvas.toBlob(async function(blob) {
+
+
+                // Create form data.
+
+                const formData =
+                    new FormData();
+
+
+                // Add the image.
+
+                formData.append(
+                    "file",
+                    blob,
+                    "frame.jpg"
+                );
+
+
+                try {
+
+
+                    // Send the image to FastAPI.
+
+                    const response =
+                        await fetch(
+                            "/predict",
+                            {
+                                method: "POST",
+                                body: formData
+                            }
+                        );
+
+
+                    // Convert the API response
+                    // from JSON into JavaScript.
+
+                    const result =
+                        await response.json();
+
+
+                    // Display prediction.
+
+                    predictionText.textContent =
+                        result.prediction;
+
+
+                    // Display confidence.
+
+                    const percentage =
+                        result.confidence * 100;
+
+
+                    confidenceText.textContent =
+                        "Confidence: " +
+                        percentage.toFixed(1) +
+                        "%";
+
+
+                }
+
+
+                catch (error) {
+
+
+                    console.error(
+                        "Prediction error:",
+                        error
+                    );
+
+
+                }
+
+            }, "image/jpeg");
+
+        }
+
+
+        // -------------------------------------------------
+        // RUN PREDICTION EVERY 500 MILLISECONDS
+        // -------------------------------------------------
+
+        setInterval(
+
+            sendFrame,
+
+            500
+
+        );
+
+
+    </script>
+
+
+</body>
+
+</html>
